@@ -1,0 +1,264 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>runTest</title><meta name="generator" content="MATLAB 8.2"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2014-05-12"><meta name="DC.source" content="runTest.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, tt, code { font-size:12px; }
+pre { margin:0px 0px 20px; }
+pre.error { color:red; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [responses, totalReward, rewardVsTime] = runTest(rightAnswers, socIn, socInWeight, momentum, rewardAmount, epsilon, discount)
+<span class="comment">%runTest return a vector of binary responses to the test questions and the</span>
+<span class="comment">%reward garnered.</span>
+
+<span class="comment">%rightAnswers - Row vector of correct answers. Should be a binary vector.</span>
+<span class="comment">%socIn - Row vector of social input for each question. Should be a binary</span>
+<span class="comment">%vector.</span>
+<span class="comment">%socInWeight - The amount social input is considered. Should be a number</span>
+<span class="comment">%from 0 to 0.9.</span>
+<span class="comment">%momentum - The rate at which the rate of change of the left and right</span>
+<span class="comment">%quality changes. This allows the neural network to handle volitility.</span>
+<span class="comment">%rewardAmount - The reward received per correct answer.</span>
+<span class="comment">%epsilon - The learning rate.</span>
+
+    numQuestions = size(rightAnswers, 2);
+    rewardVsTime = zeros(2, numQuestions); <span class="comment">%for plotting</span>
+    totalReward = 0;
+
+    QL = 0.5; <span class="comment">%quality of left decision</span>
+    qLInc = 0;
+
+    QR = 0.5; <span class="comment">%quality of right decision</span>
+	qRInc = 0; <span class="comment">%amount</span>
+
+    <span class="keyword">for</span> i = 1:numQuestions
+        SI = socIn(i);
+        RA = rightAnswers(i);
+
+        <span class="comment">%changes the SI to either -1 or 1. Treated as the output of a</span>
+        <span class="comment">%linear neuron with weight of 2 connecting it to SI and a bias of</span>
+        <span class="comment">%-1.</span>
+        linNeuOut = -1 + 2*SI;
+
+        <span class="comment">%Takes quality of a left decision and gives it a weight of 1,</span>
+        <span class="comment">%and takes the quality of a right decision and gives it a weight of</span>
+        <span class="comment">%-1, then feeds them both as input to a neuron with a tan activation</span>
+        <span class="comment">%function, bounding it between -1 and 1.</span>
+        tanhNeuOut = tanh(QL - QR);
+
+        <span class="comment">%combines the modified social input and the output of the tan</span>
+        <span class="comment">%neuron into one value, then feeds it as input into a binary</span>
+        <span class="comment">%threshold neuron.</span>
+        binNeuIn = linNeuOut*socInWeight + tanhNeuOut;
+        binNeuOut = (binNeuIn &gt; 0)*1;
+
+        responses(i) = binNeuOut;
+
+        <span class="comment">%Set the current reward to 0 if none was earned or the amount per</span>
+        <span class="comment">%correct answer if the right answer was given, then add it to the</span>
+        <span class="comment">%total reward.</span>
+        currentReward = (RA == binNeuOut)*rewardAmount;
+        totalReward = totalReward + currentReward;
+
+        <span class="comment">%reward time plot variable recording.</span>
+        rewardVsTime(1, i) = i;
+        rewardVsTime(2, i) = totalReward;
+
+        <span class="comment">%Update the QBlock which won out, if it failed to be correct the</span>
+        <span class="comment">%reward input will be 0, if it was right it will be the set reward</span>
+        <span class="comment">%per answer</span>
+        <span class="keyword">if</span> tanhNeuOut &gt; 0
+            [QL, qLInc] = updateQBlock(epsilon, momentum, discount, QL, qLInc, currentReward);
+        <span class="keyword">elseif</span> tanhNeuOut &lt;= 0
+            [QR, qRInc] = updateQBlock(epsilon, momentum, discount, QR, qRInc, currentReward);
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">%commented out the following lines because now graph displays in gui, uncomment to see</span>
+    <span class="comment">%graph without gui</span>
+<span class="comment">%     figure</span>
+<span class="comment">%     hold on</span>
+<span class="comment">%     title('Reward Earned by Agent Vs. Trial Number')</span>
+<span class="comment">%     ylabel('Reward Earned')</span>
+<span class="comment">%     xlabel('Trial Number')</span>
+<span class="comment">%     plot(rewardVsTime(1,:), rewardVsTime(2,:))</span>
+<span class="comment">%     hold off</span>
+<span class="keyword">end</span>
+
+<span class="comment">%NEURAL NETWORK DIAGRAM</span>
+
+<span class="comment">%                                |                       OUTPUT</span>
+<span class="comment">%                              (bin)</span>
+<span class="comment">%                               /\</span>
+<span class="comment">%                 w=socInWeight/  \w=1</span>
+<span class="comment">%                             /    \</span>
+<span class="comment">%                            /      \</span>
+<span class="comment">%                        (linNeu)  (tanhNeu)</span>
+<span class="comment">%                          /|          /\</span>
+<span class="comment">%                         / |      w=1/  \w=-1</span>
+<span class="comment">%                        /  |w=2     /    \</span>
+<span class="comment">%                       -1  |      (QL)  (QR)</span>
+<span class="comment">%                           |</span>
+<span class="comment">%                           |</span>
+<span class="comment">%                           |</span>
+<span class="comment">%                          SI                            INPUT</span>
+</pre><pre class="codeoutput">Error using runTest (line 15)
+Not enough input arguments.
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2013b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [responses, totalReward, rewardVsTime] = runTest(rightAnswers, socIn, socInWeight, momentum, rewardAmount, epsilon, discount)
+%runTest return a vector of binary responses to the test questions and the
+%reward garnered.
+
+%rightAnswers - Row vector of correct answers. Should be a binary vector.
+%socIn - Row vector of social input for each question. Should be a binary
+%vector.
+%socInWeight - The amount social input is considered. Should be a number
+%from 0 to 0.9.
+%momentum - The rate at which the rate of change of the left and right
+%quality changes. This allows the neural network to handle volitility.
+%rewardAmount - The reward received per correct answer.
+%epsilon - The learning rate.
+
+    numQuestions = size(rightAnswers, 2);
+    rewardVsTime = zeros(2, numQuestions); %for plotting
+    totalReward = 0;
+    
+    QL = 0.5; %quality of left decision
+    qLInc = 0;
+    
+    QR = 0.5; %quality of right decision
+	qRInc = 0; %amount 
+    
+    for i = 1:numQuestions
+        SI = socIn(i);
+        RA = rightAnswers(i);
+        
+        %changes the SI to either -1 or 1. Treated as the output of a
+        %linear neuron with weight of 2 connecting it to SI and a bias of
+        %-1.
+        linNeuOut = -1 + 2*SI;
+        
+        %Takes quality of a left decision and gives it a weight of 1,
+        %and takes the quality of a right decision and gives it a weight of
+        %-1, then feeds them both as input to a neuron with a tan activation
+        %function, bounding it between -1 and 1.
+        tanhNeuOut = tanh(QL - QR);
+        
+        %combines the modified social input and the output of the tan
+        %neuron into one value, then feeds it as input into a binary
+        %threshold neuron.
+        binNeuIn = linNeuOut*socInWeight + tanhNeuOut;
+        binNeuOut = (binNeuIn > 0)*1;
+        
+        responses(i) = binNeuOut;
+        
+        %Set the current reward to 0 if none was earned or the amount per
+        %correct answer if the right answer was given, then add it to the
+        %total reward.
+        currentReward = (RA == binNeuOut)*rewardAmount;
+        totalReward = totalReward + currentReward;
+        
+        %reward time plot variable recording.
+        rewardVsTime(1, i) = i;
+        rewardVsTime(2, i) = totalReward;
+        
+        %Update the QBlock which won out, if it failed to be correct the
+        %reward input will be 0, if it was right it will be the set reward
+        %per answer
+        if tanhNeuOut > 0
+            [QL, qLInc] = updateQBlock(epsilon, momentum, discount, QL, qLInc, currentReward);
+        elseif tanhNeuOut <= 0
+            [QR, qRInc] = updateQBlock(epsilon, momentum, discount, QR, qRInc, currentReward);
+        end
+    end
+    
+    %commented out the following lines because now graph displays in gui, uncomment to see
+    %graph without gui
+%     figure
+%     hold on
+%     title('Reward Earned by Agent Vs. Trial Number')
+%     ylabel('Reward Earned')
+%     xlabel('Trial Number')
+%     plot(rewardVsTime(1,:), rewardVsTime(2,:))
+%     hold off
+end
+
+%NEURAL NETWORK DIAGRAM
+
+%                                |                       OUTPUT
+%                              (bin)
+%                               /\
+%                 w=socInWeight/  \w=1
+%                             /    \
+%                            /      \
+%                        (linNeu)  (tanhNeu)
+%                          /|          /\
+%                         / |      w=1/  \w=-1
+%                        /  |w=2     /    \
+%                       -1  |      (QL)  (QR)
+%                           |        
+%                           |         
+%                           |          
+%                          SI                            INPUT      
+
+##### SOURCE END #####
+--></body></html>
